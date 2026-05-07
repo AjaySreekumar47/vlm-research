@@ -26,7 +26,7 @@ To answer this, the project develops an evaluation framework around:
 - qualitative failure cases,
 - and structured failure taxonomy.
 
-The current README replaces an earlier broad “medical VLM exploration” framing. The earlier version described the project as a journey through TP-SIS reproduction, EndoVis processing, and custom VLM development :contentReference[oaicite:0]{index=0}. The flagship framing here focuses on the strongest current research contribution: **evaluation of prompt-driven surgical segmentation under realistic failure conditions**.
+The current README replaces an earlier broad “medical VLM exploration” framing. The earlier version described the project as a journey through TP-SIS reproduction, EndoVis processing, and custom VLM development. The flagship framing here focuses on the strongest current research contribution: **evaluation of prompt-driven surgical segmentation under realistic failure conditions**.
 
 ---
 
@@ -167,7 +167,7 @@ This repository includes experiments and exploratory work involving several visi
 | U-Net baselines | Supervised segmentation reference point |
 | Custom VLM implementation | Understanding multimodal architecture internals |
 
-The original README emphasized TP-SIS reproduction, EndoVis processing, and custom VLM development as major phases of the project :contentReference[oaicite:1]{index=1}. Those remain part of the broader research history, but the current flagship direction is the **evaluation framework for zero-shot surgical segmentation**.
+The original README emphasized TP-SIS reproduction, EndoVis processing, and custom VLM development as major phases of the project. Those remain part of the broader research history, but the current flagship direction is the **evaluation framework for zero-shot surgical segmentation**.
 
 ---
 
@@ -181,7 +181,7 @@ The project has used surgical segmentation datasets including:
 | EndoVis 2018 | Surgical scene / instrument segmentation experiments |
 | CholecSeg8k | Cholecystectomy scene segmentation and generalization analysis |
 
-The original project work included detailed EndoVis 2017 processing and binary/multiclass segmentation dataset creation :contentReference[oaicite:2]{index=2}.
+The original project work included detailed EndoVis 2017 processing and binary/multiclass segmentation dataset creation.
 
 ---
 
