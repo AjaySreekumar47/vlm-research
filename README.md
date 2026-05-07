@@ -170,6 +170,8 @@ The quantitative table is only part of the story. Surgical segmentation errors a
 assets/qualitative/failure_analysis_exp16.png
 ```
 
+![Qualitative failure analysis](assets/qualitative/failure_analysis_exp16.png)
+
 > **Qualitative failure analysis.** Each row shows one surgical frame and target class. Columns compare oracle-prompt SAM, degraded-prompt SAM, detector-guided SAM, and text-conditioned CLIPSeg predictions. Prediction panels include IoU and failure labels.
 
 ---
@@ -279,7 +281,7 @@ Example paths used during experimentation:
 
 ---
 
-## Cross-Dataset Experiments
+## Preliminary Cross-Dataset Experiments
 
 Preliminary CholecSeg8k experiments were also run to test generalization beyond the main EndoVis setup.
 
@@ -469,7 +471,7 @@ Future cleanup will consolidate:
 - [x] Qualitative failure visualization
 - [x] Final method × prompt-level matrix
 - [ ] Clean result CSV export
-- [ ] Add final qualitative images to `assets/qualitative/`
+- [x] Add final qualitative images to `assets/qualitative/`
 - [ ] Convert notebook workflow into reusable scripts
 - [ ] Extend finalized benchmark to EndoVis2018 and CholecSeg8k
 
