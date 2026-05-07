@@ -166,8 +166,6 @@ The quantitative table is only part of the story. Surgical segmentation errors a
 
 ### Main Qualitative Figure
 
-Place the final EXP16 figure here:
-
 ```text
 assets/qualitative/failure_analysis_exp16.png
 ```
