@@ -172,30 +172,9 @@ Place the final EXP16 figure here:
 assets/qualitative/failure_analysis_exp16.png
 ```
 
-Recommended figure content:
-
-| Column | What it should show |
-|---|---|
-| Input | Original surgical frame |
-| Ground Truth | Target mask |
-| SAM_L0 | Oracle-prompt SAM prediction |
-| SAM_L3 | Degraded-prompt SAM prediction |
-| DINO+SAM | Detector/grounding-generated localization + SAM prediction |
-| CLIPSeg | Text-conditioned segmentation output |
-
-Once the image is exported, this will render automatically:
-
-![Qualitative failure analysis placeholder](assets/qualitative/failure_analysis_exp16.png)
-
-Suggested caption:
-
 > **Qualitative failure analysis.** Each row shows one surgical frame and target class. Columns compare oracle-prompt SAM, degraded-prompt SAM, detector-guided SAM, and text-conditioned CLIPSeg predictions. Prediction panels include IoU and failure labels.
 
 ---
-
-## Additional Figures to Add
-
-For a polished flagship repository, add these images under `assets/qualitative/`.
 
 ### 1. Prompt Ladder Degradation Example
 
@@ -203,7 +182,7 @@ For a polished flagship repository, add these images under `assets/qualitative/`
 assets/qualitative/prompt_ladder_degradation.png
 ```
 
-Use this for a single frame showing:
+a single frame showing:
 
 ```text
 Input → Ground Truth → SAM_L0 → SAM_L1 → SAM_L2 → SAM_L3
@@ -221,7 +200,7 @@ Placeholder:
 assets/qualitative/dino_sam_localization_failure.png
 ```
 
-Use this for a case where the detector/grounding box is wrong or shifted, causing SAM to segment the wrong region.
+Case where the detector/grounding box is wrong or shifted, causing SAM to segment the wrong region.
 
 Placeholder:
 
@@ -235,7 +214,7 @@ Placeholder:
 assets/qualitative/clipseg_failure_case.png
 ```
 
-Use this for a CLIPSeg failure showing either no useful detection, wrong structure, or noisy activation.
+CLIPSeg failure showing either no useful detection, wrong structure, or noisy activation.
 
 Placeholder:
 
@@ -249,7 +228,7 @@ Placeholder:
 assets/qualitative/failure_taxonomy_grid.png
 ```
 
-Use this for a compact figure showing one representative example each for TP, F1, F2, and F3.
+figure showing one representative example each for TP, F1, F2, and F3.
 
 Placeholder:
 
