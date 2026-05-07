@@ -1,0 +1,5 @@
+assets/qualitative/failure_analysis_exp16.png
+assets/qualitative/prompt_ladder_degradation.png
+assets/qualitative/dino_sam_localization_failure.png
+assets/qualitative/clipseg_failure_case.png
+assets/qualitative/failure_taxonomy_grid.png
