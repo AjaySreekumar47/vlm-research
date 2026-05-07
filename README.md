@@ -1,12 +1,13 @@
 # Zero-Shot Surgical Segmentation Evaluation with Vision-Language Models
 
-> Evaluation framework for studying how prompt-based and zero-shot surgical segmentation pipelines behave under realistic localization conditions.
+> A research framework for evaluating how prompt-based and zero-shot surgical segmentation pipelines fail under realistic localization conditions.
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-red)](https://pytorch.org/)
 [![Google Colab](https://img.shields.io/badge/Google%20Colab-Research%20Workflow-orange)](https://colab.research.google.com/)
 [![Computer Vision](https://img.shields.io/badge/Computer%20Vision-Segmentation-brightgreen)]()
 [![Vision-Language Models](https://img.shields.io/badge/VLMs-Zero--Shot%20Evaluation-purple)]()
+[![Medical AI](https://img.shields.io/badge/Medical%20AI-Surgical%20Scenes-lightgrey)]()
 
 ---
 
@@ -14,261 +15,357 @@
 
 This repository investigates **zero-shot and prompt-based surgical scene segmentation** using vision-language and foundation-model pipelines.
 
-The central goal is not just to compare models by Dice or IoU. Instead, this project asks a more diagnostic question:
+The central contribution is not a simple model leaderboard. Instead, this project asks:
 
-> **Where do prompt-based surgical segmentation pipelines actually fail: detection, localization, mask generation, or class-level reasoning?**
+> **Where do surgical segmentation pipelines actually fail: detection, localization, mask generation, or semantic alignment?**
 
-To answer this, the project develops an evaluation framework around:
+To answer this, the project builds an evaluation workflow around:
 
 - prompt-ladder experiments,
 - localization degradation analysis,
 - segmentation quality metrics,
-- qualitative failure cases,
-- and structured failure taxonomy.
+- method-level failure taxonomy,
+- and qualitative failure visualization.
 
-The current README replaces an earlier broad “medical VLM exploration” framing. The earlier version described the project as a journey through TP-SIS reproduction, EndoVis processing, and custom VLM development. The flagship framing here focuses on the strongest current research contribution: **evaluation of prompt-driven surgical segmentation under realistic failure conditions**.
+The main finding is that **localization quality is often the dominant bottleneck**. Promptable segmentation models can produce useful masks when prompts are accurate, but performance degrades sharply as prompts become noisy, shifted, or detector-generated.
 
 ---
 
 ## Research Question
 
-Modern segmentation foundation models can produce strong masks when given accurate prompts. But in real surgical scenes, the hard part is often not mask generation alone.
+Modern promptable segmentation models can perform well when given strong spatial prompts. But in realistic surgical workflows, those prompts may come from a user, a detector, a grounding model, or a language-conditioned system.
 
 This project studies:
 
-> **How robust are zero-shot surgical segmentation pipelines when prompts move from oracle-quality localization to noisy, degraded, or detector-generated localization?**
+> **How robust are zero-shot surgical segmentation pipelines when prompts move from oracle-quality localization to noisy or detector-generated localization?**
 
-In practical terms, the work separates the pipeline into:
+The evaluation separates the pipeline into:
 
-1. **Detection** — was the object/instrument identified at all?
-2. **Localization** — was the prompt, point, or bounding box placed near the correct structure?
-3. **Segmentation** — given the prompt, did the model produce a useful mask?
-4. **Failure interpretation** — what kind of failure occurred, and is it consistent across methods?
+```text
+Detection → Localization → Segmentation → Failure Analysis
+```
+
+This makes it possible to distinguish:
+
+- whether the target object was detected at all,
+- whether the localization prompt was placed correctly,
+- whether the segmentation model produced a useful mask,
+- and whether two methods with similar Dice/IoU fail in different ways.
 
 ---
 
 ## Why This Matters
 
-Surgical segmentation is difficult because surgical scenes contain:
+Surgical segmentation is challenging because surgical scenes often contain:
 
 - small and thin instruments,
-- specular highlights,
 - occlusions,
 - smoke, blur, and blood,
-- overlapping tools and tissues,
+- specular highlights,
+- overlapping tools and tissue,
 - visually similar structures,
-- strong frame-to-frame variation.
+- and rapid frame-to-frame changes.
 
-A single Dice or IoU score can hide very different behaviors. Two methods may achieve similar aggregate scores while failing for completely different reasons.
+A single Dice or IoU score can hide very different operational behaviors. For example, two methods may achieve similar aggregate scores, but one may mostly fail by missing the target while another may localize the object but produce incomplete masks.
 
-This project therefore treats segmentation as a pipeline:
+This repository therefore treats segmentation as a diagnostic pipeline rather than a single black-box output.
 
 ```mermaid
 flowchart LR
-    A[Surgical Frame] --> B[Prompt or Text Query]
+    A[Surgical Frame] --> B[Prompt Source]
     B --> C[Detection / Grounding]
     C --> D[Localization]
-    D --> E[Mask Generation]
-    E --> F[Metrics]
+    D --> E[Promptable Segmentation]
+    E --> F[Dice / IoU / Detection Rate]
     F --> G[Failure Taxonomy]
 ```
-
-The main idea is:
-
-> **Prompt quality and localization quality often explain segmentation degradation more clearly than mask quality alone.**
 
 ---
 
 ## Core Contribution
 
-This repository contributes an evaluation framework for prompt-based surgical segmentation with four main components:
+This project contributes a **failure-aware evaluation framework** for surgical segmentation under prompt degradation.
 
 ### 1. Prompt Ladder Evaluation
 
-The prompt ladder progressively degrades the quality of localization prompts to simulate increasingly realistic conditions.
+The prompt ladder progressively degrades localization quality to simulate increasingly realistic conditions.
 
-Example framing:
-
-| Level | Prompt Condition | What It Simulates |
+| Level | Description | Purpose |
 |---|---|---|
-| L0 | Oracle / near-perfect prompt | Best-case segmentation capability |
-| L1 | Mildly degraded prompt | Small localization error |
-| L2 | Moderately degraded prompt | Imperfect detector or user prompt |
-| L3 | Strongly degraded prompt | Realistic localization failure |
-| Detector-based | Model-generated box/query | Fully automatic zero-shot pipeline |
+| **SAM_L0** | Oracle bounding box from ground truth | Measures best-case promptable segmentation capability |
+| **SAM_L1** | Mildly degraded bounding box | Simulates small localization error |
+| **SAM_L2** | Moderately degraded bounding box | Simulates imperfect user or model-generated localization |
+| **SAM_L3** | Strongly degraded bounding box | Simulates severe localization drift |
+| **DINO+SAM** | Detector/grounding-style box followed by SAM | Tests automatic detection-to-segmentation behavior |
+| **CLIPSeg** | Text-conditioned segmentation baseline | Tests direct language-guided segmentation behavior |
 
-The purpose is to measure the **degradation curve**, not just the best-case score.
+The main result is the **degradation curve**, not simply the best score.
 
 ---
 
 ### 2. Localization-Centric Analysis
 
-Instead of treating segmentation as a single black box, experiments are framed as:
+Instead of evaluating only final masks, the project frames segmentation as:
 
 ```text
-Detection → Localization → Segmentation
+Detection → Localization → Mask Generation
 ```
 
-This makes it possible to ask:
+This allows each method to be analyzed by where it breaks:
 
-- Did the model fail because the object was not found?
-- Did it find the object but place the prompt badly?
-- Did the segmentation model fail despite a good prompt?
-- Did the predicted mask capture only partial pixels?
-- Did the method hallucinate a nearby structure?
+- **Detection failure:** the object is not found.
+- **Localization failure:** the prompt or predicted region is poorly aligned.
+- **Mask-quality failure:** the target is found, but the predicted mask is incomplete or noisy.
+- **Semantic mismatch:** the method responds to the wrong structure or class cue.
 
 ---
 
 ### 3. Failure Taxonomy
 
-The project tracks qualitative and quantitative failure modes to distinguish between visually different errors.
+The final benchmark tracks both quantitative metrics and failure-mode distributions.
 
-Example taxonomy:
-
-| Failure Type | Meaning |
+| Label | Meaning |
 |---|---|
-| TP | Successful detection / useful mask |
-| F1 | Missed object or no usable mask |
-| F2 | Localization failure |
-| F3 | Partial mask / incomplete segmentation |
-| F4 | Wrong structure segmented |
-| F5 | Over-segmentation or background leakage |
+| **TP** | True positive: target is localized and segmented with usable overlap |
+| **F1** | Detection failure: no usable target mask or object effectively missed |
+| **F2** | Localization failure: prediction exists but is poorly aligned with the target |
+| **F3** | Partial / low-quality segmentation: target is found, but mask quality is incomplete or degraded |
 
-> Note: The exact taxonomy may vary across experiment notebooks. The goal is to make failure interpretation explicit rather than relying only on aggregate metrics.
+This taxonomy is useful because Dice and IoU alone do not explain *why* a method failed.
 
 ---
 
-### 4. Quantitative + Qualitative Evaluation
+## Main Result: Prompt Degradation and Method Comparison
 
-The framework combines:
+The table below summarizes the final method × prompt-level matrix from the evaluation workflow.
 
-- Dice score,
-- Intersection-over-Union,
-- detection rate,
-- true-positive rate,
-- failure-mode distribution,
-- and visual inspection of representative examples.
+| Method | Mean IoU | Mean Dice | Detection Rate | TP Rate | F1 Rate | F2 Rate | F3 Rate |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **SAM_L0** | **0.5679** | **0.6456** | **0.7023** | **0.6907** | 0.0000 | 0.2977 | 0.0116 |
+| **SAM_L1** | 0.4901 | 0.5675 | 0.6177 | 0.6144 | 0.0000 | 0.3823 | 0.0033 |
+| **SAM_L2** | 0.4311 | 0.4965 | 0.5315 | 0.5249 | 0.0000 | 0.4685 | 0.0066 |
+| **SAM_L3** | 0.3475 | 0.4062 | 0.4515 | 0.4398 | 0.0000 | 0.5485 | 0.0116 |
+| **DINO+SAM** | 0.3060 | 0.3554 | 0.3768 | 0.3668 | 0.0000 | 0.6232 | 0.0100 |
+| **CLIPSeg** | 0.0764 | 0.1090 | 0.0880 | 0.0780 | 0.4838 | 0.4282 | 0.0100 |
 
-This is especially important in surgical segmentation because two predictions with similar Dice can have very different clinical or operational meaning.
+### Interpretation
+
+The results show a clear degradation pattern:
+
+- **SAM_L0 performs best**, as expected, because it receives oracle-quality localization.
+- Performance drops steadily from **SAM_L0 → SAM_L1 → SAM_L2 → SAM_L3**, showing that localization noise directly reduces segmentation quality.
+- **DINO+SAM underperforms oracle and degraded SAM prompts**, suggesting that detector/grounding localization is a major bottleneck.
+- **CLIPSeg has substantially lower Dice/IoU and high F1/F2 failure rates**, indicating difficulty with direct text-conditioned surgical segmentation in this setup.
+- The increasing **F2 localization failure rate** across degraded prompts supports the central claim: segmentation quality is tightly coupled to localization quality.
+
+---
+
+## Qualitative Failure Analysis
+
+The quantitative table is only part of the story. Surgical segmentation errors are easier to understand visually, especially when separating localization failures from mask-quality failures.
+
+### Main Qualitative Figure
+
+Place the final EXP16 figure here:
+
+```text
+assets/qualitative/failure_analysis_exp16.png
+```
+
+Recommended figure content:
+
+| Column | What it should show |
+|---|---|
+| Input | Original surgical frame |
+| Ground Truth | Target mask |
+| SAM_L0 | Oracle-prompt SAM prediction |
+| SAM_L3 | Degraded-prompt SAM prediction |
+| DINO+SAM | Detector/grounding-generated localization + SAM prediction |
+| CLIPSeg | Text-conditioned segmentation output |
+
+Once the image is exported, this will render automatically:
+
+![Qualitative failure analysis placeholder](assets/qualitative/failure_analysis_exp16.png)
+
+Suggested caption:
+
+> **Qualitative failure analysis.** Each row shows one surgical frame and target class. Columns compare oracle-prompt SAM, degraded-prompt SAM, detector-guided SAM, and text-conditioned CLIPSeg predictions. Prediction panels include IoU and failure labels.
+
+---
+
+## Additional Figures to Add
+
+For a polished flagship repository, add these images under `assets/qualitative/`.
+
+### 1. Prompt Ladder Degradation Example
+
+```text
+assets/qualitative/prompt_ladder_degradation.png
+```
+
+Use this for a single frame showing:
+
+```text
+Input → Ground Truth → SAM_L0 → SAM_L1 → SAM_L2 → SAM_L3
+```
+
+Placeholder:
+
+![Prompt ladder degradation placeholder](assets/qualitative/prompt_ladder_degradation.png)
+
+---
+
+### 2. DINO+SAM Localization Failure
+
+```text
+assets/qualitative/dino_sam_localization_failure.png
+```
+
+Use this for a case where the detector/grounding box is wrong or shifted, causing SAM to segment the wrong region.
+
+Placeholder:
+
+![DINO+SAM localization failure placeholder](assets/qualitative/dino_sam_localization_failure.png)
+
+---
+
+### 3. CLIPSeg Semantic / Detection Failure
+
+```text
+assets/qualitative/clipseg_failure_case.png
+```
+
+Use this for a CLIPSeg failure showing either no useful detection, wrong structure, or noisy activation.
+
+Placeholder:
+
+![CLIPSeg failure case placeholder](assets/qualitative/clipseg_failure_case.png)
+
+---
+
+### 4. Failure Taxonomy Grid
+
+```text
+assets/qualitative/failure_taxonomy_grid.png
+```
+
+Use this for a compact figure showing one representative example each for TP, F1, F2, and F3.
+
+Placeholder:
+
+![Failure taxonomy grid placeholder](assets/qualitative/failure_taxonomy_grid.png)
 
 ---
 
 ## Methods Explored
 
-This repository includes experiments and exploratory work involving several vision-language and segmentation approaches.
+This repository includes experiments and exploratory workflows involving:
 
 | Method / Family | Role in Project |
 |---|---|
-| SAM-style segmentation | Promptable mask generation |
-| Grounding / detector-based pipelines | Automatic localization |
-| CLIP-style scoring | Image-text alignment and mask selection |
-| BLIP / BLIP-2-style models | Captioning and visual question answering exploration |
-| SEEM-style segmentation | Promptable segmentation and open-vocabulary segmentation exploration |
-| U-Net baselines | Supervised segmentation reference point |
-| Custom VLM implementation | Understanding multimodal architecture internals |
+| **SAM-style promptable segmentation** | Main segmentation engine for prompt ladder experiments |
+| **DINO+SAM-style pipelines** | Detector/grounding localization followed by segmentation |
+| **CLIPSeg** | Direct text-conditioned segmentation baseline |
+| **CLIP-style scoring** | Semantic scoring and image-text alignment exploration |
+| **BLIP / BLIP-2** | Captioning and VQA-style surgical scene understanding |
+| **SEEM-style segmentation** | Open-vocabulary / promptable segmentation exploration |
+| **U-Net baselines** | Supervised reference point for segmentation |
+| **Custom VLM implementation** | Architectural understanding of vision-language fusion |
 
-The original README emphasized TP-SIS reproduction, EndoVis processing, and custom VLM development as major phases of the project. Those remain part of the broader research history, but the current flagship direction is the **evaluation framework for zero-shot surgical segmentation**.
+The broader repository began as a medical VLM exploration, including TP-SIS reproduction, EndoVis preprocessing, and custom VLM development. The current flagship direction is the **evaluation framework for zero-shot surgical segmentation under localization degradation**.
 
 ---
 
 ## Datasets
 
-The project has used surgical segmentation datasets including:
+The project uses surgical segmentation datasets across different stages of experimentation.
 
-| Dataset | Use |
+| Dataset | Use in Project |
 |---|---|
-| EndoVis 2017 | Surgical instrument segmentation and prompt-based evaluation |
-| EndoVis 2018 | Surgical scene / instrument segmentation experiments |
-| CholecSeg8k | Cholecystectomy scene segmentation and generalization analysis |
+| **EndoVis 2017** | Main surgical instrument segmentation and prompt-ladder evaluation |
+| **EndoVis 2018** | Dataset audit and extension target for broader surgical segmentation evaluation |
+| **CholecSeg8k** | Cross-dataset / cholecystectomy scene segmentation exploration |
 
-The original project work included detailed EndoVis 2017 processing and binary/multiclass segmentation dataset creation.
+### Dataset Notes
+
+- EndoVis-style datasets are used to evaluate surgical instrument segmentation under different prompt conditions.
+- CholecSeg8k experiments are treated as cross-dataset exploration because class definitions, masks, and visual structure differ from EndoVis.
+- Some experiments are notebook-driven and require local dataset paths or Google Drive mounting.
+
+Example paths used during experimentation:
+
+```text
+/content/EndoVis2017_extracted
+/content/EndoVis2018
+/content/datasets/CholecSeg8k
+```
+
+---
+
+## Cross-Dataset Experiments
+
+Preliminary CholecSeg8k experiments were also run to test generalization beyond the main EndoVis setup.
+
+| Method | Mean IoU | Mean Dice | Detection Rate | TP Rate | F1 Rate | F2 Rate | F3 Rate | N |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **SAM_L1** | 0.4403 | 0.5713 | 0.6559 | 0.6301 | 0.0860 | 0.2581 | 0.0258 | 465 |
+| **DINO+SAM** | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 1.0000 | 0.0000 | 0.0000 | 465 |
+| **CLIPSeg** | 0.0095 | 0.0172 | 0.0000 | 0.0000 | 0.9699 | 0.0301 | 0.0000 | 465 |
+
+### Note on CholecSeg8k Results
+
+These results are marked as **preliminary** because later debugging suggested that detector/localization behavior may require dataset-specific handling. They are included to show cross-dataset evaluation direction, not as the final CholecSeg8k benchmark.
 
 ---
 
 ## Evaluation Metrics
 
-The main metrics used across experiments include:
-
 | Metric | Purpose |
 |---|---|
-| Dice Score | Measures mask overlap quality |
-| IoU | Measures intersection-over-union overlap |
-| Detection Rate | Measures whether the target was found |
-| TP Rate | Fraction of successful predictions |
-| Failure Distribution | Shows how and where methods break |
-| Qualitative Examples | Human-interpretable failure analysis |
+| **Dice Score** | Measures mask overlap quality |
+| **IoU** | Measures intersection-over-union overlap |
+| **Detection Rate** | Measures whether the method produced a usable detection |
+| **TP Rate** | Measures successful target localization and segmentation |
+| **F1/F2/F3 Rates** | Quantifies failure-mode distribution |
+| **Qualitative Grids** | Shows visual differences between failure types |
 
-Dice and IoU are useful but insufficient alone. This project emphasizes that **where a method fails** can matter as much as **how much it scores**.
+The core evaluation principle is:
 
----
-
-## Expected Result Format
-
-A typical experiment summary should look like this:
-
-| Method | Mean IoU | Mean Dice | Detection Rate | TP Rate | Main Failure Pattern |
-|---|---:|---:|---:|---:|---|
-| SAM L0 | TBD | TBD | TBD | TBD | Best-case promptable segmentation |
-| SAM L1 | TBD | TBD | TBD | TBD | Mild localization degradation |
-| SAM L2 | TBD | TBD | TBD | TBD | Moderate localization degradation |
-| SAM L3 | TBD | TBD | TBD | TBD | Strong prompt degradation |
-| DINO + SAM | TBD | TBD | TBD | TBD | Detector/localization bottleneck |
-| SAM + CLIP | TBD | TBD | TBD | TBD | Mask selection / semantic mismatch |
-| SEEM-style pipeline | TBD | TBD | TBD | TBD | Open-vocabulary prompt sensitivity |
-
-Replace `TBD` values with the finalized experiment results once the experiments are consolidated.
+> Dice and IoU measure mask overlap, but failure taxonomy explains why the overlap succeeds or fails.
 
 ---
 
-## Key Findings So Far
+## Key Findings
 
-Current working findings:
+### 1. Prompt quality strongly controls segmentation quality
 
-1. **Prompt quality strongly controls segmentation quality.**  
-   High-quality prompts can produce strong masks, but performance degrades sharply when localization becomes noisy.
+The degradation from SAM_L0 to SAM_L3 shows that segmentation quality declines as the localization prompt becomes less reliable.
 
-2. **Localization is often the central bottleneck.**  
-   Many failures are better explained by poor object localization than by mask-generation failure alone.
+### 2. Localization is a major bottleneck
 
-3. **Aggregate Dice/IoU can hide different error profiles.**  
-   Two methods may have similar Dice but very different failure distributions.
+The rise in F2 failure rate across degraded prompts suggests that many failures are caused by poor localization rather than mask generation alone.
 
-4. **Failure taxonomy improves interpretability.**  
-   Categorizing failures makes it easier to compare methods beyond raw scores.
+### 3. Oracle-prompt performance overestimates realistic performance
 
-5. **Zero-shot surgical segmentation needs realistic evaluation.**  
-   Oracle-prompt performance is useful, but it overestimates performance in practical settings.
+SAM_L0 shows what promptable segmentation can do under ideal localization. But automatic or degraded localization produces substantially lower results.
 
----
+### 4. Detector-guided segmentation inherits detector errors
 
-## Qualitative Examples
+DINO+SAM performance is limited by the quality of the generated localization region. When the detector/grounding step fails, SAM often segments the wrong area or an irrelevant region.
 
-Add representative visual examples here.
+### 5. Direct text-conditioned segmentation remains difficult in surgical scenes
 
-Recommended format:
+CLIPSeg performs poorly in this evaluation, suggesting that direct language-guided segmentation struggles with fine-grained surgical instruments and scene ambiguity.
 
-```text
-assets/
-├── qualitative/
-│   ├── sam_l0_success.png
-│   ├── sam_l3_localization_failure.png
-│   ├── dino_sam_failure_case.png
-│   └── failure_taxonomy_grid.png
-```
+### 6. Failure taxonomy reveals differences hidden by aggregate metrics
 
-Suggested README layout:
-
-| Input Frame | Ground Truth | Prediction | Failure Type |
-|---|---|---|---|
-| ![](assets/qualitative/example_input.png) | ![](assets/qualitative/example_gt.png) | ![](assets/qualitative/example_pred.png) | F2: Localization Failure |
-
-Once final figures are available, replace the placeholder paths above with actual images from the repository.
+Methods with similar Dice or IoU can fail in different ways. Reporting F1/F2/F3 distributions makes the comparison more interpretable.
 
 ---
 
 ## Repository Structure
 
-Current and expected organization:
+The repository is notebook-driven and research-stage. The intended organization is:
 
 ```text
 vlm-research/
@@ -278,53 +375,56 @@ vlm-research/
 │   ├── EndoVisio2017/
 │   ├── VLM-Implementation/
 │   └── experiments/
+├── results/
+│   ├── exp13_method_prompt_matrix.csv
+│   └── cholecseg8k_preliminary_results.csv
+├── assets/
+│   └── qualitative/
+│       ├── failure_analysis_exp16.png
+│       ├── prompt_ladder_degradation.png
+│       ├── dino_sam_localization_failure.png
+│       ├── clipseg_failure_case.png
+│       └── failure_taxonomy_grid.png
 ├── src/
 │   ├── data/
 │   ├── models/
 │   ├── evaluation/
 │   ├── inference/
 │   └── utils/
-├── scripts/
-│   ├── training/
-│   ├── inference/
-│   └── evaluation/
-├── configs/
-├── assets/
-│   └── qualitative/
-└── results/
+└── requirements.txt
 ```
 
-If some folders are not present yet, they should be treated as the target cleaned structure for consolidating the research code.
+If some folders are not present yet, they represent the target cleaned structure for consolidating the project.
 
 ---
 
 ## How to Read This Repository
 
-Recommended order:
+Recommended reading order:
 
-1. **Dataset understanding / preprocessing notebooks**  
+1. **Dataset exploration / preprocessing notebooks**  
    Understand EndoVis and CholecSeg8k structure, masks, labels, and preprocessing.
 
-2. **Baseline segmentation notebooks**  
-   Review supervised segmentation baselines such as U-Net or TP-SIS reproduction.
+2. **Baseline segmentation workflows**  
+   Review supervised or promptable segmentation baselines.
 
-3. **Prompt-based segmentation experiments**  
-   Study SAM-style promptable segmentation under different prompt conditions.
+3. **Prompt ladder experiments**  
+   Study how SAM-style segmentation changes from oracle to degraded prompts.
 
-4. **Grounding + segmentation pipelines**  
-   Review detector-generated localization followed by segmentation.
+4. **Detector / grounding + segmentation experiments**  
+   Review DINO+SAM-style workflows and localization-driven failure cases.
 
-5. **Failure taxonomy and evaluation notebooks**  
-   Analyze where methods break: detection, localization, segmentation, or semantic mismatch.
+5. **Text-conditioned segmentation experiments**  
+   Review CLIPSeg and language-guided segmentation behavior.
 
-6. **Final consolidated results**  
-   Use summarized metrics and qualitative grids for reporting.
+6. **Failure taxonomy and visualization notebooks**  
+   Analyze where methods break and how those failures appear visually.
 
 ---
 
 ## Quick Start
 
-This repository is primarily notebook-driven, with experiments developed in Google Colab.
+Clone the repository:
 
 ```bash
 git clone https://github.com/AjaySreekumar47/vlm-research.git
@@ -337,9 +437,14 @@ Install dependencies as needed:
 pip install -r requirements.txt
 ```
 
-For Colab-based workflows, mount Google Drive and update dataset paths inside the relevant notebooks.
+For Google Colab workflows:
 
-Example dataset paths used during experimentation:
+```python
+from google.colab import drive
+drive.mount('/content/drive')
+```
+
+Update dataset paths inside notebooks as needed:
 
 ```text
 /content/EndoVis2017_extracted
@@ -351,23 +456,24 @@ Example dataset paths used during experimentation:
 
 ## Reproducibility Notes
 
-This project includes exploratory and research-stage experiments. Some notebooks may require:
+This is a research-stage repository. Some workflows may require:
 
-- dataset access or manual dataset placement,
-- Google Drive mounting,
-- GPU runtime,
+- Google Colab GPU runtime,
+- dataset access and manual dataset placement,
 - model checkpoints,
 - external repositories,
-- or local path updates.
+- local path updates,
+- or Google Drive mounting.
 
-Where possible, future cleanup should consolidate:
+Future cleanup will consolidate:
 
 - environment setup,
 - dataset preprocessing,
 - model loading,
-- evaluation metrics,
+- prompt generation,
+- metric computation,
 - result export,
-- and visualization generation.
+- and figure generation.
 
 ---
 
@@ -376,43 +482,48 @@ Where possible, future cleanup should consolidate:
 ### Completed / In Progress
 
 - [x] EndoVis dataset exploration and preprocessing
-- [x] Surgical instrument segmentation baselines
+- [x] Surgical segmentation baselines
 - [x] Prompt-based segmentation experiments
-- [x] Initial VLM exploration: CLIP, BLIP, BLIP-2, SEEM-style workflows
 - [x] Prompt ladder design
 - [x] Localization degradation experiments
+- [x] DINO+SAM-style detector-to-segmentation evaluation
+- [x] CLIPSeg text-conditioned segmentation baseline
 - [x] Failure taxonomy design
-- [ ] Final consolidated experiment table
-- [ ] Final qualitative figure grid
-- [ ] Clean experiment runner scripts
-- [ ] Paper-style results section
+- [x] Qualitative failure visualization
+- [x] Final method × prompt-level matrix
+- [ ] Clean result CSV export
+- [ ] Add final qualitative images to `assets/qualitative/`
+- [ ] Convert notebook workflow into reusable scripts
+- [ ] Extend finalized benchmark to EndoVis2018 and CholecSeg8k
 
 ### Future Directions
 
 - Temporal consistency across surgical video frames
 - Visual consistency checks across adjacent frames
 - Stronger grounding models for instrument localization
-- Better open-vocabulary surgical class handling
+- Improved open-vocabulary surgical class handling
 - Interactive language-guided segmentation
 - Unified benchmark across EndoVis and CholecSeg8k
+- Paper-style writeup of prompt degradation and failure taxonomy results
 
 ---
 
 ## Research Positioning
 
-This project is best understood as an **evaluation and diagnostics framework**, not simply a model-comparison exercise.
+This project is best understood as an **evaluation and diagnostics framework** for prompt-based surgical segmentation.
 
 The core claim is:
 
-> Prompt-based surgical segmentation should be evaluated under realistic localization conditions because best-case oracle prompting can hide the actual bottleneck.
+> Promptable surgical segmentation should be evaluated under realistic localization conditions because oracle-prompt performance can hide the true bottleneck.
 
-This framing supports future work on:
+This framing supports research in:
 
 - surgical AI robustness,
 - vision-language model evaluation,
 - promptable segmentation,
 - grounding-based segmentation,
-- and failure-aware medical AI systems.
+- medical image understanding,
+- and failure-aware model analysis.
 
 ---
 
